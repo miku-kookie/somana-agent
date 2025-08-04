@@ -1,100 +1,155 @@
 # Somana Agent
 
-A simple Go server for Linux host management, inspired by the [Somana project](https://github.com/miku-kookie/somana).
+A Go-based agent for managing and monitoring sensors with a RESTful API.
 
-## Overview
+## Quick Start for Jetson
 
-Somana Agent is a lightweight host management API that allows you to register, monitor, and manage Linux hosts. It provides a RESTful API for host registration, status updates, and health monitoring.
+### Automated Installation
 
-## Features
+1. Clone the repository:
+```bash
+git clone https://github.com/miku-kookie/somana-agent.git
+cd somana-agent
+```
 
-- Host registration and management
-- Health monitoring
-- SQLite database storage
-- RESTful API endpoints
-- Simple and clean architecture
+2. Run the setup script:
+```bash
+./setup.sh
+```
 
-## Quick Start
+This script will:
+- Install Go 1.21.6 for ARM64
+- Install all required dependencies
+- Download the OpenAPI specification
+- Generate code from the API spec
+- Build the application
+- Set up systemd service for auto-start
+- Configure log rotation
+- Create basic configuration
 
-1. **Install dependencies:**
-   ```bash
-   go mod tidy
-   ```
+### Manual Installation
 
-2. **Run the server:**
-   ```bash
-   go run cmd/server/main.go
-   ```
+If you prefer manual installation:
 
-3. **Test the API:**
-   ```bash
-   # Health check
-   curl http://localhost:8080/health
-   
-   # Register a host
-   curl -X POST http://localhost:8080/api/v1/hosts \
-     -H "Content-Type: application/json" \
-     -d '{
-       "hostname": "web-server-01",
-       "ip_address": "192.168.1.100",
-       "os_name": "Ubuntu",
-       "os_version": "22.04.3 LTS"
-     }'
-   
-   # List all hosts
-   curl http://localhost:8080/api/v1/hosts
-   ```
+1. Install Go:
+```bash
+# Download and install Go for ARM64
+wget https://go.dev/dl/go1.21.6.linux-arm64.tar.gz
+sudo tar -C /usr/local -xzf go1.21.6.linux-arm64.tar.gz
+echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+source ~/.bashrc
+```
 
-## API Endpoints
+2. Install dependencies:
+```bash
+go mod tidy
+go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
+```
 
-### Host Management
-- `GET /api/v1/hosts` - List all hosts
-- `POST /api/v1/hosts` - Register a new host
-- `GET /api/v1/hosts/:id` - Get a specific host by ID
-- `PUT /api/v1/hosts/:id` - Update a host
-- `DELETE /api/v1/hosts/:id` - Deregister a host
-- `POST /api/v1/hosts/:id/heartbeat` - Update host status/heartbeat
+3. Download API spec and generate code:
+```bash
+mkdir -p api
+curl -L -o api/openapi.yaml https://github.com/miku-kookie/somana/releases/download/v1.0.2/openapi.yaml
+make generate
+```
 
-### Health Check
-- `GET /health` - Health check endpoint
+4. Build the application:
+```bash
+make build
+```
 
-## Project Structure
+## Usage
+
+### Start the Service
+```bash
+sudo systemctl start somana-agent
+```
+
+### Check Status
+```bash
+sudo systemctl status somana-agent
+```
+
+### View Logs
+```bash
+journalctl -u somana-agent -f
+```
+
+### Manual Run (for testing)
+```bash
+./bin/somana
+```
+
+## Configuration
+
+Edit `config/config.yaml` to configure your sensors:
+
+```yaml
+server:
+  port: 9000
+  host: "0.0.0.0"
+
+database:
+  path: "./data/somana.db"
+
+sensors:
+  temperature:
+    type: "temperature"
+    location: "room1"
+    bridge: "i2c"
+```
+
+## API
+
+The API will be available at:
+- **API**: http://localhost:9000
+- **Documentation**: http://localhost:9000/swagger/index.html
+
+## Development
+
+### Available Make Targets
+
+- `make build` - Generate code and build the application
+- `make clean` - Clean build artifacts and generated files
+- `make test` - Run tests
+- `make deps` - Install dependencies
+- `make generate` - Generate code from OpenAPI spec
+- `make run` - Generate, build and run the application
+
+### Project Structure
 
 ```
 somana-agent/
-├── cmd/
-│   └── server/
-│       └── main.go          # Application entry point
+├── cmd/server/          # Main application entry point
 ├── internal/
-│   ├── database/
-│   │   └── database.go      # Database connection and setup
-│   ├── models/
-│   │   └── host.go          # Host model definition
-│   └── handlers/
-│       └── host_handlers.go # HTTP request handlers
-├── go.mod                   # Go module definition
-└── README.md               # This file
+│   ├── database/        # Database models and initialization
+│   ├── generated/       # Generated code from OpenAPI spec
+│   └── services/        # Business logic services
+├── api/                 # OpenAPI specification
+├── config/              # Configuration files
+├── data/                # Database files
+├── logs/                # Application logs
+└── bin/                 # Built binaries
 ```
 
-## Host Model
+## Troubleshooting
 
-The Host model includes:
-- `ID` - Unique identifier (auto-generated)
-- `Hostname` - Hostname of the system
-- `IPAddress` - IP address of the system
-- `OSName` - Operating system name
-- `OSVersion` - Operating system version
-- `Status` - Current status (online, offline, maintenance)
-- `CreatedAt` - Registration timestamp
-- `UpdatedAt` - Last update timestamp
-- `DeletedAt` - Soft delete timestamp (nullable)
+### Common Issues
 
-## Database
+1. **Go not found**: Make sure Go is installed and in your PATH
+2. **Permission denied**: Run setup script as non-root user
+3. **Service won't start**: Check logs with `journalctl -u somana-agent`
+4. **Port already in use**: Change port in config or stop conflicting service
 
-The application uses SQLite with GORM for database operations. The database file will be automatically created in the `data/` directory when the application starts.
+### Logs
 
-Default database location: `data/somana.db`
+- Application logs: `./logs/somana.log`
+- System logs: `journalctl -u somana-agent`
 
-## License
+## Contributing
 
-MIT License 
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests: `make test`
+5. Submit a pull request 
