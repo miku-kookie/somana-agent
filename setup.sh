@@ -64,23 +64,38 @@ if ! command -v go &> /dev/null; then
     # Extract Go
     sudo tar -C /usr/local -xzf "${GO_TAR}"
     
-    # Add Go to PATH
-    if ! grep -q "/usr/local/go/bin" ~/.bashrc; then
-        echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
-        export PATH=$PATH:/usr/local/go/bin
-    fi
-    
     # Clean up
     rm "${GO_TAR}"
     cd -
+    
+    # Add Go to PATH permanently
+    if ! grep -q "/usr/local/go/bin" ~/.bashrc; then
+        echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+    fi
+    
+    # Update PATH for current session
+    export PATH=$PATH:/usr/local/go/bin
     
     print_success "Go installed successfully"
 else
     print_success "Go is already installed"
 fi
 
-# Verify Go installation
+# Verify Go installation and update PATH if needed
 print_status "Verifying Go installation..."
+if ! command -v go &> /dev/null; then
+    # Try to update PATH and verify again
+    export PATH=$PATH:/usr/local/go/bin
+    if ! command -v go &> /dev/null; then
+        print_error "Go installation failed. Please run the following commands manually:"
+        print_error "wget https://go.dev/dl/go1.21.6.linux-arm64.tar.gz"
+        print_error "sudo tar -C /usr/local -xzf go1.21.6.linux-arm64.tar.gz"
+        print_error "export PATH=\$PATH:/usr/local/go/bin"
+        print_error "Then run this script again."
+        exit 1
+    fi
+fi
+
 go version
 
 # Install oapi-codegen tool
@@ -104,10 +119,11 @@ else
     print_success "OpenAPI specification already exists"
 fi
 
-# Install Go dependencies
+# Install Go dependencies and fix missing runtime
 print_status "Installing Go dependencies..."
 go mod tidy
 go mod download
+go get github.com/oapi-codegen/runtime
 
 # Generate code from OpenAPI spec
 print_status "Generating code from OpenAPI specification..."
