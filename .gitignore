@@ -23,6 +23,7 @@ data/
 
 # Generated code
 internal/generated/
+internal/client/
 
 # Downloaded OpenAPI specification
 api/openapi.yaml

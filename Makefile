@@ -6,6 +6,7 @@ BUILD_DIR=bin
 MAIN_PATH=./cmd/server
 GO_VERSION=1.21.6
 GO_ARCH=linux-arm64
+OPENAPI_VERSION=v1.0.6
 
 # Go parameters - check if go is available, otherwise use full path
 GOCMD=$(shell if command -v go > /dev/null; then echo go; else echo /usr/local/go/bin/go; fi)
@@ -88,6 +89,8 @@ clean:
 	fi
 	@rm -rf $(BUILD_DIR)
 	@rm -rf internal/generated
+	@rm -rf internal/client
+	@rm -f api/openapi.yaml
 
 # Run tests
 test:
@@ -113,13 +116,13 @@ deps:
 
 # Download OpenAPI specification from GitHub
 download-api:
-	@echo "Downloading OpenAPI specification from GitHub..."
+	@echo "Downloading OpenAPI specification from GitHub (version: $(OPENAPI_VERSION))..."
 	@mkdir -p api
-	@curl -L -o api/openapi.yaml https://github.com/miku-kookie/somana/releases/download/v1.0.2/openapi.yaml
+	@curl -L -o api/openapi.yaml https://github.com/miku-kookie/somana/releases/download/$(OPENAPI_VERSION)/openapi.yaml
 	@echo "OpenAPI specification downloaded to api/openapi.yaml"
 
 # Generate code from OpenAPI spec
-generate:
+generate: download-api
 	@echo "Generating code from OpenAPI spec..."
 	@mkdir -p internal/generated
 	@mkdir -p internal/client

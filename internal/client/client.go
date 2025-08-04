@@ -862,7 +862,6 @@ type GetHealthResponse struct {
 		Status  *string `json:"status,omitempty"`
 		Version *string `json:"version,omitempty"`
 	}
-	JSON500 *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -1225,13 +1224,6 @@ func ParseGetHealthResponse(rsp *http.Response) (*GetHealthResponse, error) {
 			return nil, err
 		}
 		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
 
 	}
 
