@@ -3,19 +3,33 @@ package main
 import (
 	"log"
 
-	"github.com/gin-gonic/gin"
-
+	"somana-agent/internal/config"
 	"somana-agent/internal/database"
-	"somana-agent/internal/generated"
 	"somana-agent/internal/services"
 )
 
 func main() {
+	// Load configuration
+	cfg, err := config.LoadConfig("config/config.yaml")
+	if err != nil {
+		log.Fatal("Failed to load configuration:", err)
+	}
+
 	// Initialize database
 	if err := database.InitDatabase(); err != nil {
 		log.Fatal("Failed to initialize database:", err)
 	}
 
+	// Create host registration service
+	hostRegService := services.NewHostRegistrationService(cfg)
+
+	// Start host registration and heartbeat
+	if err := hostRegService.Start(); err != nil {
+		log.Printf("Warning: Failed to start host registration: %v", err)
+	}
+
+	// Comment out Gin server for now - focus on host registration debugging
+	/*
 	// Create Gin router
 	r := gin.Default()
 
@@ -30,4 +44,9 @@ func main() {
 	if err := r.Run(":9000"); err != nil {
 		log.Fatal("Failed to start server:", err)
 	}
+	*/
+
+	// Keep the process running for debugging
+	log.Println("Host registration service started. Press Ctrl+C to exit.")
+	select {}
 } 

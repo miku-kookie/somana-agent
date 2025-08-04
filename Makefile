@@ -52,9 +52,20 @@ install-tools: install-go
 	fi
 
 # Complete setup including Go installation
-setup: install-tools download-api deps generate
+setup: install-tools download-api deps generate create-config
 	@echo "Setup completed successfully!"
 	@echo "If you get 'go: command not found' errors, run: source ~/.bashrc"
+
+# Create configuration directory and files
+create-config:
+	@echo "Creating configuration files..."
+	@mkdir -p config
+	@mkdir -p data
+	@mkdir -p logs
+	@if [ ! -f config/config.yaml ]; then \
+		echo "Creating default config.yaml..."; \
+		cp config/config.yaml.example config/config.yaml 2>/dev/null || echo 'host_registration:\n  somana_url: "http://localhost:8081"\n  host_id: ""' > config/config.yaml; \
+	fi
 
 # Build the application (includes code generation)
 build: generate
@@ -111,21 +122,20 @@ download-api:
 generate:
 	@echo "Generating code from OpenAPI spec..."
 	@mkdir -p internal/generated
-	@if command -v go > /dev/null; then \
-		if command -v ~/go/bin/oapi-codegen > /dev/null; then \
-			~/go/bin/oapi-codegen -package generated -generate types api/openapi.yaml > internal/generated/types.go; \
-			~/go/bin/oapi-codegen -package generated -generate gin-server api/openapi.yaml > internal/generated/server.go; \
-			echo "Code generation complete"; \
-		else \
-			echo "oapi-codegen not found. Installing..."; \
-			go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest; \
-			~/go/bin/oapi-codegen -package generated -generate types api/openapi.yaml > internal/generated/types.go; \
-			~/go/bin/oapi-codegen -package generated -generate gin-server api/openapi.yaml > internal/generated/server.go; \
-			echo "Code generation complete"; \
-		fi; \
+	@mkdir -p internal/client
+	@export PATH=$$PATH:/usr/local/go/bin; \
+	if command -v ~/go/bin/oapi-codegen > /dev/null; then \
+		~/go/bin/oapi-codegen -package generated -generate types api/openapi.yaml > internal/generated/types.go; \
+		~/go/bin/oapi-codegen -package generated -generate gin-server api/openapi.yaml > internal/generated/server.go; \
+		~/go/bin/oapi-codegen -package client -generate types,client api/openapi.yaml > internal/client/client.go; \
+		echo "Code generation complete"; \
 	else \
-		echo "Go not found. Please run: source ~/.bashrc"; \
-		exit 1; \
+		echo "oapi-codegen not found. Installing..."; \
+		go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest; \
+		~/go/bin/oapi-codegen -package generated -generate types api/openapi.yaml > internal/generated/types.go; \
+		~/go/bin/oapi-codegen -package generated -generate gin-server api/openapi.yaml > internal/generated/server.go; \
+		~/go/bin/oapi-codegen -package client -generate types,client api/openapi.yaml > internal/client/client.go; \
+		echo "Code generation complete"; \
 	fi
 
 # Generate Swagger documentation
@@ -157,9 +167,10 @@ run: build
 # Show help
 help:
 	@echo "Available targets:"
-	@echo "  setup         - Complete setup (install Go, tools, deps, generate code)"
+	@echo "  setup         - Complete setup (install Go, tools, deps, generate code, create config)"
 	@echo "  install-go    - Install Go if not present"
 	@echo "  install-tools - Install Go and required tools"
+	@echo "  create-config - Create configuration files and directories"
 	@echo "  build         - Generate code and build the application"
 	@echo "  clean         - Clean build artifacts and generated files"
 	@echo "  test          - Run tests"

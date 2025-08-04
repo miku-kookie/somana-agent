@@ -1,0 +1,3 @@
+host_registration:
+    somana_url: http://localhost:8080
+    host_id: "7"
