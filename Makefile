@@ -7,8 +7,8 @@ MAIN_PATH=./cmd/server
 GO_VERSION=1.21.6
 GO_ARCH=linux-arm64
 
-# Go parameters
-GOCMD=go
+# Go parameters - check if go is available, otherwise use full path
+GOCMD=$(shell if command -v go > /dev/null; then echo go; else echo /usr/local/go/bin/go; fi)
 GOBUILD=$(GOCMD) build
 GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
@@ -32,8 +32,8 @@ install-go:
 		if ! grep -q "/usr/local/go/bin" ~/.bashrc; then \
 			echo 'export PATH=$$PATH:/usr/local/go/bin' >> ~/.bashrc; \
 		fi; \
-		export PATH=$$PATH:/usr/local/go/bin; \
 		echo "Go installed successfully"; \
+		echo "Please run: source ~/.bashrc or restart your terminal"; \
 	else \
 		echo "Go is already installed"; \
 	fi
@@ -41,43 +41,64 @@ install-go:
 # Install required tools
 install-tools: install-go
 	@echo "Installing required tools..."
-	@export PATH=$$PATH:/usr/local/go/bin; \
-	go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest; \
-	go install github.com/swaggo/swag/cmd/swag@latest; \
-	echo "Tools installed successfully"
+	@if command -v go > /dev/null; then \
+		go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest; \
+		go install github.com/swaggo/swag/cmd/swag@latest; \
+		echo "Tools installed successfully"; \
+	else \
+		echo "Go not found in PATH. Please run: source ~/.bashrc"; \
+		echo "Then run: make install-tools"; \
+		exit 1; \
+	fi
 
 # Complete setup including Go installation
 setup: install-tools download-api deps generate
 	@echo "Setup completed successfully!"
+	@echo "If you get 'go: command not found' errors, run: source ~/.bashrc"
 
 # Build the application (includes code generation)
 build: generate
 	@echo "Building $(BINARY_NAME)..."
 	@mkdir -p $(BUILD_DIR)
-	@export PATH=$$PATH:/usr/local/go/bin; \
-	$(GOBUILD) -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	@if command -v go > /dev/null; then \
+		$(GOBUILD) -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH); \
+	else \
+		echo "Go not found. Please run: source ~/.bashrc"; \
+		exit 1; \
+	fi
 
 # Clean build artifacts and generated files
 clean:
 	@echo "Cleaning..."
-	@export PATH=$$PATH:/usr/local/go/bin; \
-	$(GOCLEAN)
+	@if command -v go > /dev/null; then \
+		$(GOCLEAN); \
+	else \
+		echo "Go not found, skipping clean"; \
+	fi
 	@rm -rf $(BUILD_DIR)
 	@rm -rf internal/generated
 
 # Run tests
 test:
 	@echo "Running tests..."
-	@export PATH=$$PATH:/usr/local/go/bin; \
-	$(GOTEST) -v ./...
+	@if command -v go > /dev/null; then \
+		$(GOTEST) -v ./...; \
+	else \
+		echo "Go not found. Please run: source ~/.bashrc"; \
+		exit 1; \
+	fi
 
 # Install dependencies
 deps:
 	@echo "Installing dependencies..."
-	@export PATH=$$PATH:/usr/local/go/bin; \
-	$(GOMOD) tidy; \
-	$(GOMOD) download; \
-	go get github.com/oapi-codegen/runtime
+	@if command -v go > /dev/null; then \
+		$(GOMOD) tidy; \
+		$(GOMOD) download; \
+		go get github.com/oapi-codegen/runtime; \
+	else \
+		echo "Go not found. Please run: source ~/.bashrc"; \
+		exit 1; \
+	fi
 
 # Download OpenAPI specification from GitHub
 download-api:
@@ -90,29 +111,37 @@ download-api:
 generate:
 	@echo "Generating code from OpenAPI spec..."
 	@mkdir -p internal/generated
-	@export PATH=$$PATH:/usr/local/go/bin; \
-	if command -v ~/go/bin/oapi-codegen > /dev/null; then \
-		~/go/bin/oapi-codegen -package generated -generate types api/openapi.yaml > internal/generated/types.go; \
-		~/go/bin/oapi-codegen -package generated -generate gin-server api/openapi.yaml > internal/generated/server.go; \
-		echo "Code generation complete"; \
+	@if command -v go > /dev/null; then \
+		if command -v ~/go/bin/oapi-codegen > /dev/null; then \
+			~/go/bin/oapi-codegen -package generated -generate types api/openapi.yaml > internal/generated/types.go; \
+			~/go/bin/oapi-codegen -package generated -generate gin-server api/openapi.yaml > internal/generated/server.go; \
+			echo "Code generation complete"; \
+		else \
+			echo "oapi-codegen not found. Installing..."; \
+			go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest; \
+			~/go/bin/oapi-codegen -package generated -generate types api/openapi.yaml > internal/generated/types.go; \
+			~/go/bin/oapi-codegen -package generated -generate gin-server api/openapi.yaml > internal/generated/server.go; \
+			echo "Code generation complete"; \
+		fi; \
 	else \
-		echo "oapi-codegen not found. Installing..."; \
-		go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest; \
-		~/go/bin/oapi-codegen -package generated -generate types api/openapi.yaml > internal/generated/types.go; \
-		~/go/bin/oapi-codegen -package generated -generate gin-server api/openapi.yaml > internal/generated/server.go; \
-		echo "Code generation complete"; \
+		echo "Go not found. Please run: source ~/.bashrc"; \
+		exit 1; \
 	fi
 
 # Generate Swagger documentation
 generate-docs:
 	@echo "Generating Swagger documentation..."
-	@export PATH=$$PATH:/usr/local/go/bin; \
-	if command -v swag > /dev/null; then \
-		swag init -g $(MAIN_PATH)/main.go -o ./docs; \
+	@if command -v go > /dev/null; then \
+		if command -v swag > /dev/null; then \
+			swag init -g $(MAIN_PATH)/main.go -o ./docs; \
+		else \
+			echo "swag not found. Installing..."; \
+			go install github.com/swaggo/swag/cmd/swag@latest; \
+			swag init -g $(MAIN_PATH)/main.go -o ./docs; \
+		fi; \
 	else \
-		echo "swag not found. Installing..."; \
-		go install github.com/swaggo/swag/cmd/swag@latest; \
-		swag init -g $(MAIN_PATH)/main.go -o ./docs; \
+		echo "Go not found. Please run: source ~/.bashrc"; \
+		exit 1; \
 	fi
 
 # Publish OpenAPI specification to GitHub releases
